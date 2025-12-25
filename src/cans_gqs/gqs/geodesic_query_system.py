@@ -7,8 +7,14 @@ GQS = CANS-nD (angular system) + Physics + Constraints + Solvers
 """
 
 import numpy as np
-from typing import Dict, List, Any, Callable
+from typing import Dict, List, Any, Callable, Optional
 from ..cans_nd.nd_angular_system import NDAngularSystem
+from .physics import (
+    Entity, Particle, RigidBody,
+    Integrator, EulerIntegrator, RK4Integrator, VerletIntegrator, ImplicitEulerIntegrator,
+    ForceField, GravityForceField, SpringForceField, DampingForceField,
+    Constraint, DistanceConstraint, AngularConstraint
+)
 
 
 class GeodesicQuerySystem:
@@ -19,29 +25,50 @@ class GeodesicQuerySystem:
     Formerly: "Geometric Simulation Engine (GSE)"
     """
     
-    def __init__(self, dimension: int):
+    def __init__(self, dimension: int, integrator: str = "euler"):
         """
         Initialize the Geodesic Query System.
         
         Parameters:
             dimension: Dimension of the space
+            integrator: Integrator type ("euler", "rk4", "verlet", "implicit_euler")
         """
         self.dimension = dimension
         self.framework_name = "Geodesic Query System"
         self.framework_acronym = "GQS"
-        self.version = "1.0"
+        self.version = "1.1"
         
         # Core subsystems
         self.angular_system = GQSNDAngularSystem(dimension)
-        self.entities: Dict[str, Any] = {}
-        self.forces: Dict[str, Callable] = {}
-        self.constraints: Dict[str, Any] = {}
+        self.entities: Dict[str, Entity] = {}
+        self.force_fields: List[ForceField] = []
+        self.constraints: List[Constraint] = []
         
         self.timestep = 1e-3
         self.time = 0.0
         
+        # Initialize integrator
+        self.integrator = self._create_integrator(integrator)
+        
         # Positioning / strategy (for documentation & introspection)
         self.positioning = self._get_positioning_statements()
+    
+    def _create_integrator(self, integrator_type: str) -> Integrator:
+        """Create integrator based on type"""
+        integrator_map = {
+            "euler": EulerIntegrator,
+            "rk4": RK4Integrator,
+            "verlet": VerletIntegrator,
+            "implicit_euler": ImplicitEulerIntegrator,
+        }
+        
+        if integrator_type.lower() not in integrator_map:
+            raise ValueError(
+                f"Unknown integrator: {integrator_type}. "
+                f"Available: {list(integrator_map.keys())}"
+            )
+        
+        return integrator_map[integrator_type.lower()](self.timestep)
     
     def _get_positioning_statements(self) -> Dict[str, str]:
         """Updated positioning statements post-rebranding"""
@@ -59,37 +86,44 @@ class GeodesicQuerySystem:
                 "Not just angle computation - a formal language for geometric relationships.",
         }
     
-    def add_entity(self, label: str, entity: Any):
+    def add_entity(self, entity: Entity):
         """
         Add an entity to the simulation.
         
         Parameters:
-            label: Entity identifier
-            entity: Entity data (position, velocity, mass, etc.)
+            entity: Entity instance (Particle, RigidBody, etc.)
         """
-        self.entities[label] = entity
+        self.entities[entity.label] = entity
     
-    def add_force(self, label: str, force_function: Callable):
+    def add_force_field(self, force_field: ForceField):
         """
-        Add a force to the simulation.
+        Add a force field to the simulation.
         
         Parameters:
-            label: Force identifier
-            force_function: Function that computes force given entities
+            force_field: ForceField instance
         """
-        self.forces[label] = force_function
+        self.force_fields.append(force_field)
     
-    def add_constraint(self, label: str, constraint: Any):
+    def add_constraint(self, constraint: Constraint):
         """
-        Add a CANS-based angular constraint.
+        Add a CANS-based geometric constraint.
         
         Parameters:
-            label: Constraint identifier
-            constraint: Constraint specification
+            constraint: Constraint instance
         """
-        self.constraints[label] = constraint
+        self.constraints.append(constraint)
     
-    def simulation_step(self) -> Dict[str, Any]:
+    def set_integrator(self, integrator_type: str):
+        """
+        Change the integrator.
+        
+        Parameters:
+            integrator_type: Integrator type ("euler", "rk4", "verlet", "implicit_euler")
+        """
+        self.integrator = self._create_integrator(integrator_type)
+        self.integrator.timestep = self.timestep
+    
+    def simulation_step(self) -> Dict[str, Entity]:
         """
         Single CPU simulation step.
         
@@ -100,10 +134,13 @@ class GeodesicQuerySystem:
         forces = self._compute_forces(self.entities)
         
         # 2. Apply geometric / physical constraints
-        constrained_forces = self._apply_constraints(forces, self.entities)
+        constrained_entities = self._apply_constraints(self.entities)
         
-        # 3. Integrate equations of motion
-        new_entities = self._integrate(self.entities, constrained_forces)
+        # Re-compute forces after constraint application
+        forces = self._compute_forces(constrained_entities)
+        
+        # 3. Integrate equations of motion using selected integrator
+        new_entities = self.integrator.step(constrained_entities, forces)
         
         # 4. Advance system state
         self.entities = new_entities
@@ -111,67 +148,32 @@ class GeodesicQuerySystem:
         
         return new_entities
     
-    def _compute_forces(self, entities: Dict[str, Any]) -> Dict[str, np.ndarray]:
+    def _compute_forces(self, entities: Dict[str, Entity]) -> Dict[str, np.ndarray]:
         """Compute all forces acting on entities"""
         forces = {}
+        
         for label, entity in entities.items():
             total_force = np.zeros(self.dimension)
-            for force_name, force_func in self.forces.items():
-                total_force += force_func(entity, entities)
+            
+            # Apply all force fields
+            for force_field in self.force_fields:
+                total_force += force_field.compute_force(entity, entities)
+            
             forces[label] = total_force
+        
         return forces
     
-    def _apply_constraints(self, forces: Dict[str, np.ndarray],
-                          entities: Dict[str, Any]) -> Dict[str, np.ndarray]:
-        """Apply CANS-based constraints to forces"""
-        constrained_forces = forces.copy()
+    def _apply_constraints(self, entities: Dict[str, Entity]) -> Dict[str, Entity]:
+        """Apply CANS-based constraints to entities"""
+        constrained_entities = entities.copy()
         
         # Apply each constraint
-        for constraint_label, constraint in self.constraints.items():
-            constrained_forces = self._apply_single_constraint(
-                constraint, constrained_forces, entities
-            )
+        for constraint in self.constraints:
+            constrained_entities = constraint.apply(constrained_entities)
         
-        return constrained_forces
+        return constrained_entities
     
-    def _apply_single_constraint(self, constraint: Any,
-                                forces: Dict[str, np.ndarray],
-                                entities: Dict[str, Any]) -> Dict[str, np.ndarray]:
-        """Apply a single constraint"""
-        # Placeholder: specific constraint types would be implemented here
-        return forces
-    
-    def _integrate(self, entities: Dict[str, Any],
-                  forces: Dict[str, np.ndarray]) -> Dict[str, Any]:
-        """
-        Integrate equations of motion using Euler method (placeholder).
-        
-        More sophisticated integrators (RK4, Verlet, Implicit Euler) can be added.
-        """
-        new_entities = {}
-        for label, entity in entities.items():
-            if label in forces:
-                # Simple Euler integration
-                # Assumes entity has 'position', 'velocity', 'mass' fields
-                if hasattr(entity, '__dict__'):
-                    new_entity = type(entity)()
-                    for key, value in entity.__dict__.items():
-                        setattr(new_entity, key, value)
-                    
-                    if hasattr(entity, 'velocity') and hasattr(entity, 'mass'):
-                        acceleration = forces[label] / entity.mass
-                        new_entity.velocity = entity.velocity + acceleration * self.timestep
-                        new_entity.position = entity.position + new_entity.velocity * self.timestep
-                    
-                    new_entities[label] = new_entity
-                else:
-                    new_entities[label] = entity
-            else:
-                new_entities[label] = entity
-        
-        return new_entities
-    
-    def gpu_simulation_step(self) -> Dict[str, Any]:
+    def gpu_simulation_step(self) -> Dict[str, Entity]:
         """
         Execute simulation step using GPU acceleration.
         
@@ -187,13 +189,14 @@ class GeodesicQuerySystem:
         gpu_forces = self._compute_gpu_forces(gpu_entities)
         
         # Apply constraints on GPU
-        gpu_constrained_forces = self._apply_gpu_constraints(
-            gpu_forces, gpu_entities
-        )
+        gpu_constrained_entities = self._apply_gpu_constraints(gpu_entities)
+        
+        # Re-compute forces after constraints
+        gpu_forces = self._compute_gpu_forces(gpu_constrained_entities)
         
         # Integrate on GPU
         gpu_new_entities = self._gpu_integrate(
-            gpu_entities, gpu_constrained_forces
+            gpu_constrained_entities, gpu_forces
         )
         
         # Transfer back to CPU
@@ -242,8 +245,8 @@ class GQS3DAngularSystem(NDAngularSystem):
 class GPUCapableGQS(GeodesicQuerySystem):
     """GPU-accelerated version of GQS (requires CuPy)"""
     
-    def __init__(self, dimension: int):
-        super().__init__(dimension)
+    def __init__(self, dimension: int, integrator: str = "euler"):
+        super().__init__(dimension, integrator)
         
         try:
             import cupy as cp
@@ -253,3 +256,61 @@ class GPUCapableGQS(GeodesicQuerySystem):
             self.gpu_available = False
             self.xp = np  # Fallback to CPU
             print("Warning: CuPy not available. Falling back to CPU.")
+    
+    def _transfer_to_gpu(self, entities: Dict[str, Entity]) -> Dict[str, Entity]:
+        """Transfer entities to GPU"""
+        if not self.gpu_available:
+            return entities
+        
+        gpu_entities = {}
+        for label, entity in entities.items():
+            if isinstance(entity, Particle):
+                gpu_particle = Particle(
+                    label=entity.label,
+                    position=self.xp.asarray(entity.position),
+                    mass=entity.mass,
+                    velocity=self.xp.asarray(entity.velocity),
+                    force=self.xp.asarray(entity.force)
+                )
+                gpu_entities[label] = gpu_particle
+            else:
+                gpu_entities[label] = entity
+        
+        return gpu_entities
+    
+    def _transfer_to_cpu(self, gpu_entities: Dict[str, Entity]) -> Dict[str, Entity]:
+        """Transfer entities from GPU to CPU"""
+        if not self.gpu_available:
+            return gpu_entities
+        
+        cpu_entities = {}
+        for label, entity in gpu_entities.items():
+            if isinstance(entity, Particle):
+                cpu_particle = Particle(
+                    label=entity.label,
+                    position=np.asarray(entity.position),
+                    mass=entity.mass,
+                    velocity=np.asarray(entity.velocity),
+                    force=np.asarray(entity.force)
+                )
+                cpu_entities[label] = cpu_particle
+            else:
+                cpu_entities[label] = entity
+        
+        return cpu_entities
+    
+    def _compute_gpu_forces(self, gpu_entities: Dict[str, Entity]) -> Dict[str, Any]:
+        """Compute forces on GPU"""
+        # Use the standard force computation but with GPU arrays
+        return self._compute_forces(gpu_entities)
+    
+    def _apply_gpu_constraints(self, gpu_entities: Dict[str, Entity]) -> Dict[str, Entity]:
+        """Apply geometric constraints on GPU"""
+        # Use the standard constraint application but with GPU arrays
+        return self._apply_constraints(gpu_entities)
+    
+    def _gpu_integrate(self, gpu_entities: Dict[str, Entity],
+                      gpu_forces: Dict[str, Any]) -> Dict[str, Entity]:
+        """Integrate equations of motion on GPU"""
+        # Use the standard integrator but with GPU arrays
+        return self.integrator.step(gpu_entities, gpu_forces)

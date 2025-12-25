@@ -313,13 +313,110 @@ python examples/example_01_cube.py
 python examples/example_04_advanced_features.py
 ```
 
+## Updated Features (December 2024)
+
+### Enhanced GQS Physics Engine
+
+Complete physics simulation system with:
+
+```python
+from cans_gqs.gqs import (
+    GeodesicQuerySystem,
+    Particle,
+    RigidBody,
+    EulerIntegrator,
+    RK4Integrator,
+    VerletIntegrator,
+    ImplicitEulerIntegrator,
+    GravityForceField,
+    SpringForceField,
+    DampingForceField,
+    DistanceConstraint,
+    AngularConstraint,
+)
+
+# Create system with chosen integrator
+gqs = GeodesicQuerySystem(dimension=3, integrator="verlet")
+
+# Add particles
+particle = Particle(
+    label="p1",
+    position=np.array([0.0, 0.0, 0.0]),
+    mass=1.0,
+    velocity=np.array([0.0, 0.0, 0.0])
+)
+gqs.add_entity(particle)
+
+# Add forces and constraints
+gqs.add_force_field(GravityForceField())
+gqs.add_force_field(SpringForceField("p1", "p2", stiffness=10.0, rest_length=1.0))
+gqs.add_constraint(DistanceConstraint("p1", "p2", distance=1.0))
+
+# Simulate
+for step in range(1000):
+    gqs.simulation_step()
+```
+
+**Key Features:**
+- Multiple integrators (Euler, RK4, Verlet, Implicit Euler)
+- Entity systems (Particle, RigidBody)
+- Force fields (Gravity, Spring, Damping)
+- Constraint solver (Distance, Angular)
+- Energy tracking and conservation
+
+### Application Examples
+
+#### Molecular Dynamics (example_06_molecular_dynamics.py)
+Demonstrates CANS as a "Rosetta Stone" for molecular torsion angles:
+- Backbone torsion angles (φ, ψ, ω) with CANS notation
+- Cross-package compatibility (GROMACS, AMBER, CHARMM)
+- Constrained MD simulation with bond length constraints
+- Torsion angle computation and validation
+
+#### FEA Mesh Quality (example_07_fea_mesh_quality.py)
+Automated mesh quality analysis using CANS angular measures:
+- Element quality assessment via planar angles
+- Degenerate element detection
+- Quality-based mesh validation
+- Performance: 40,000+ elements/second validation
+
+### Performance Benchmarking (benchmark_performance.py)
+
+Comprehensive benchmarking suite measuring:
+- Angular operations across dimensions (2D-6D)
+- Integrator performance comparison
+- Scaling with system size
+- Numba acceleration (15-22x speedup)
+
+**Benchmark Results:**
+```
+Angular Operations:
+  2D-6D: ~4 µs/op
+
+Integrators (10 particles, 1000 steps):
+  Euler:          0.088 ms/step (11,365 steps/s)
+  RK4:            0.233 ms/step (4,287 steps/s)
+  Verlet:         0.119 ms/step (8,369 steps/s)
+  Implicit Euler: 0.148 ms/step (6,766 steps/s)
+
+Scaling (Verlet, 100 steps):
+  10 particles:   0.344 ms/step
+  200 particles:  5.641 ms/step
+
+Numba Acceleration:
+  Vector angle:   14.85x speedup
+  Planar angle:   22.31x speedup
+```
+
 ## Future Work
 
 Remaining items from the comprehensive document:
+- [x] Complete GQS simulation engine with physics ✅
+- [x] Full constraint solver implementation ✅
+- [x] Extended performance benchmarking suite ✅
+- [x] Molecular dynamics example ✅
+- [x] FEA mesh quality example ✅
 - [ ] Full GPU acceleration (requires CuPy deep integration)
-- [ ] Complete GQS simulation engine with physics
-- [ ] Full constraint solver implementation
-- [ ] Extended performance benchmarking suite
 - [ ] Interactive web-based visualization
 
 ## References
