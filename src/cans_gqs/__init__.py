@@ -19,7 +19,16 @@ from .cans_nd.nd_primitives import (
     NDGeometryError,
 )
 from .cans_nd.nd_angular_system import NDAngularSystem
+from .cans_nd.polytope_4d import (
+    Polytope4DAngularSystem,
+    verify_4d_gauss_bonnet,
+    create_5_cell,
+    create_tesseract,
+)
+from .cans_nd.nd_visualizer import NDVisualizer
 from .gqs.geodesic_query_system import GeodesicQuerySystem
+from .utils.numba_kernels import NUMBA_AVAILABLE
+from .utils.geometric_algebra import GeometricAlgebraIntegration, CLIFFORD_AVAILABLE
 
 __all__ = [
     "PolyhedralAngleSystem",
@@ -30,5 +39,13 @@ __all__ = [
     "NDPolytope",
     "NDGeometryError",
     "NDAngularSystem",
+    "Polytope4DAngularSystem",
+    "verify_4d_gauss_bonnet",
+    "create_5_cell",
+    "create_tesseract",
+    "NDVisualizer",
     "GeodesicQuerySystem",
+    "NUMBA_AVAILABLE",
+    "GeometricAlgebraIntegration",
+    "CLIFFORD_AVAILABLE",
 ]
