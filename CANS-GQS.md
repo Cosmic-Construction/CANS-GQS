@@ -1,35 +1,30 @@
 ---
-title: "The Comprehensive Angular Naming System (CANS) and the Geodesic Query System (GQS) · Issue #1 · particles420/The-Comprehensive-Angular-Naming-System-CANS-and-the-Geodesic-Query-System-GQS-"
-source: "https://github.com/particles420/The-Comprehensive-Angular-Naming-System-CANS-and-the-Geodesic-Query-System-GQS-/issues/1"
-author:
-published:
-created: 2025-12-25
-description:
-tags:
-  - "clippings"
+name: "CANS-GQS"
+description: "The Comprehensive Angular Naming System (CANS) and the Geodesic Query System (GQS)"
 ---
-The Comprehensive Angular Naming System (CANS) and the Geodesic Query System (GQS):  
-A Formal n-Dimensional Framework for Computational Geometry and Dynamic Simulation  
+
+# The Comprehensive Angular Naming System (CANS) and the Geodesic Query System (GQS):  
+## A Formal n-Dimensional Framework for Computational Geometry and Dynamic Simulation  
 Author: ContributorX Ltd.  
 Frameworks: CANS-3D, CANS-4D, CANS-nD, Geodesic Query System (GQS)
 
-Abstract  
+### Abstract  
 We present the Comprehensive Angular Naming System (CANS) and its associated Geodesic Query System (GQS) as a unified, computable framework for describing and simulating geometric structure in three and higher dimensions. CANS-3D introduces a rigorous, edge-centric language of angular primitives—planar angles A\_p, dihedral angles A\_d, solid angles \\Omega, and vertex defects \\delta—and formally de-conflates extrinsic solid angle and intrinsic vertex defect at a vertex.  
 We then generalize these ideas to 4D and nD, where CANS-nD provides recursive definitions for k-dihedral and k-solid angles, enabling consistent computation of angularity in arbitrary dimensions. On top of this geometry, the Geodesic Query System (GQS) is defined as:  
 \\text{GQS} = \\text{CANS-nD (angular system)} ;+; \\text{Physics} ;+; \\text{Constraints} ;+; \\text{Solvers}.  
 This paper’s first part formalizes the 3D CANS notation, establishes the key novelty—the explicit separation and co-treatment of \\Omega and \\delta—and introduces the reference 3D implementation PolyhedralAngleSystem. Subsequent parts extend the framework to n-dimensions and dynamic simulation.
 
-1. Introduction  
-	1.1 The Problem of Geometric Ambiguity  
-	In computational geometry, CAD/CAE, molecular dynamics, and mesh analysis, angular structure is fundamental: dihedral angles drive mesh quality, torsion angles describe molecular backbones, and solid angles control curvature and energy densities. Yet the way these angles are named and computed is fragmented across domains:  
-	Different libraries use incompatible and often ad-hoc naming schemes for the same geometric loci.
+### 1. Introduction  
+#### 1.1 The Problem of Geometric Ambiguity  
+In computational geometry, CAD/CAE, molecular dynamics, and mesh analysis, angular structure is fundamental: dihedral angles drive mesh quality, torsion angles describe molecular backbones, and solid angles control curvature and energy densities. Yet the way these angles are named and computed is fragmented across domains:  
+Different libraries use incompatible and often ad-hoc naming schemes for the same geometric loci.
 
 Many notations are non-computable: they describe angles verbally or symbolically but do not map directly to data structures and algorithms.
 
 Existing APIs over-emphasize a subset of angular properties (e.g. dihedral angles or vertex defects) while omitting others (e.g. solid angle) from the same geometric locus.
 
 This fragmentation leads to ambiguity in scientific communication, brittleness in code, and difficulty integrating multiple tools and analyses on the same mesh or polyhedral model.  
-1.2 The CANS / GQS Architecture  
+#### 1.2 The CANS / GQS Architecture  
 This work proposes a four-framework architecture:  
 CANS-3D – a complete, computable language for 3D angularity:
 
@@ -68,7 +63,7 @@ Uses CANS-nD angular relationships as primary constraints
 Integrates physical laws, constraint solvers, and numerical integrators (RK4, Verlet, Implicit Euler, GPU variants).
 
 This first part focuses on (1): CANS-3D and its initial implementation.  
-1.3 Relationship to Existing Work and Libraries  
+### 1.3 Relationship to Existing Work and Libraries  
 CANS builds on classical geometric results (Descartes, Euler, Girard, Schläfli) and modern computational geometry libraries:  
 Vertex defect \\delta: implemented, e.g., as vertex\_defects in Trimesh.
 
@@ -81,10 +76,10 @@ giving them a unified, explicit, non-ambiguous notation, and
 
 implementing them as co-equal, co-located computations at the level of a single vertex, edge, face, or cell.
 
-2. CANS-3D: A Formal Angular Language for Polyhedral Geometry  
-	2.1 Vertex-Centered Angular Quantities  
-	At a vertex V\_i of a 3D polyhedron, CANS distinguishes four fundamental angular properties:  
-	Planar angles (2D interior angles on faces)
+### 2. CANS-3D: A Formal Angular Language for Polyhedral Geometry  
+#### 2.1 Vertex-Centered Angular Quantities  
+At a vertex V\_i of a 3D polyhedron, CANS distinguishes four fundamental angular properties:  
+Planar angles (2D interior angles on faces)
 
 For a vertex V\_i on a face F\_j, with incident edges along vertices V\_a, V\_e, the planar angle is:
 
@@ -119,7 +114,7 @@ where \\theta\_k are the planar angles at V\_i across incident faces.
 The total angle defect over all vertices of a polyhedron obeys the discrete Gauss–Bonnet relation:  
 \\sum\_{i} \\delta(V\_i) = 2\\pi \\chi,  
 where \\chi is the Euler characteristic of the surface.  
-2.2 The “Massive Coincidence”: \\Omega vs \\delta  
+#### 2.2 The “Massive Coincidence”: \\Omega vs \\delta  
 In many simple polyhedra, such as the cube, the numerical values of \\Omega(V\_i) and \\delta(V\_i) can coincide (e.g. both equal to \\pi/2), but they live in different units and dimensions:  
 \\Omega(V\_i): steradians (3D extrinsic measure)
 
@@ -138,7 +133,7 @@ Trimesh focuses on \\delta but offers no symmetric, high-level API for \\Omega.
 FEA literature and tools often compute \\Omega, but usually ignore \\delta as a first-class primitive.
 
 The paper identifies this as a “massive coincidence” problem in existing practice and resolves it by treating \\Omega and \\delta as co-equal vertex properties.  
-2.3 CANS as a Query Language, Not Just a Naming Scheme  
+#### 2.3 CANS as a Query Language, Not Just a Naming Scheme  
 CANS is designed as an active query language, not just a static symbol set. An expression such as:  
 A\_v(V\_{1,2,3}, V\_{1,2,5}; \\text{proj=face\_proj=}F\_4)  
 should be read as:  
@@ -181,7 +176,7 @@ edge pair
 4-point dihedral angle (e.g., molecular torsion)
 
 These notations are defined to be directly computable by the underlying Python implementations.  
-2.4 Novelty Verification and Competitive Context  
+#### 2.4 Novelty Verification and Competitive Context  
 The novelty of CANS-3D lies in three interlocking aspects:  
 Taxonomic unification:
 
@@ -204,14 +199,14 @@ Isolated theoretical work on solid angles and defects: does not unify them into 
 
 CANS therefore occupies a distinct niche as a formal angular query system rather than just a collection of numerical routines.
 
-3. Reference 3D Implementation:  
-	PolyhedralAngleSystem  
-	CANS-3D is made concrete by the reference Python class PolyhedralAngleSystem, which demonstrates that the formal notation is directly computable on realistic polyhedral meshes.  
-	3.1 Data Structures and Constructor  
-	The class is constructed from standard mesh primitives: a list of vertices and a list of faces (each face is a list of vertex indices). This ensures compatibility with common formats such as .obj and .stl.  
-	import numpy as np  
-	import sympy as sp  
-	from typing import List, Tuple
+### 3. Reference 3D Implementation:  
+#### PolyhedralAngleSystem  
+CANS-3D is made concrete by the reference Python class PolyhedralAngleSystem, which demonstrates that the formal notation is directly computable on realistic polyhedral meshes.  
+#### 3.1 Data Structures and Constructor  
+The class is constructed from standard mesh primitives: a list of vertices and a list of faces (each face is a list of vertex indices). This ensures compatibility with common formats such as .obj and .stl.  
+import numpy as np  
+import sympy as sp  
+from typing import List, Tuple
 
 class PolyhedralAngleSystem:  
 def **init**(self, vertices: List, faces: List\[List\[int\]\]):  
@@ -270,7 +265,7 @@ where:
 The \\arctan2 formulation yields a signed angle in (-\\pi, \\pi\], essential for distinguishing interior versus exterior configurations and for handling re-entrant (> \\pi) and non-convex cases robustly. A naive arccos(n1·n2) approach would be unsigned and numerically unstable near 0 and \\pi.
 
 These methods are direct executable counterparts of the mathematical definitions in Section 2, demonstrating that CANS-3D is not merely a theoretical naming scheme but a fully computable system.  
-3.3 Validation Case Study: The Unit Cube  
+#### 3.3 Validation Case Study: The Unit Cube  
 To validate correctness, the implementation is applied to the unit cube:
 
 # Example usage for cube validation
@@ -300,9 +295,9 @@ The solid angle \\Omega(V\_0) computed via spherical excess is also \\pi/2 stera
 
 This provides a concrete, reproducible test showing that the CANS-3D formal definitions, when implemented as PolyhedralAngleSystem, yield correct and expected values on a canonical polyhedron.
 
-4. Outlook for Parts 2 and 3 + 4  
-	In the next parts of this research paper, we will:  
-	Part 2
+### 4. Outlook for Parts 2 and 3 + 4  
+In the next parts of this research paper, we will:  
+Part 2
 
 Generalize CANS to 4D and nD, including:
 
